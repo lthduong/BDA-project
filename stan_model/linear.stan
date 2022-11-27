@@ -1,23 +1,23 @@
 data {
   int<lower=0> N;           // Number of observation
-  vector[N] suicide_16;              // The population count
-  vector[N] suicide_15;              // The population count
-  vector[N] suicide_14;              // The population count
+  vector[N] y;              // Suicide rate
+  vector[N] x;              // Unemployment rate
 }
 
 parameters {
-  real beta_0;
+  real beta_0;              // Intercept
   real beta_1;              // The slope of the regression line
-  real beta_2;
-  real<lower=0> sigma;      // Standard deviation of the model
+  real<lower=0> sigma;      
+}
+
+transformed parameters {
+  vector[N] mu = beta_0 + beta_1 * x;
 }
 
 model {
-  beta_0 ~ normal(0, 1000);
-  beta_1 ~ normal(0.01, 1000);
-  beta_2 ~ normal(0.0001, 1000);
-  sigma ~ normal(100, 1000);
-  suicide_16 ~ normal(beta_0 + beta_1 * suicide_15 + beta_2 * suicide_14, sigma);
+  beta_0 ~ normal(10, 800);
+  beta_1 ~ normal(0.5, 800);
+  sigma ~ normal(500, 700);
+  y ~ normal(mu, sigma);
 }
-
 
