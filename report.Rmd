@@ -1,0 +1,82 @@
+---
+title: "BDA - Project report"
+author: "Anonymous"
+output: 
+  pdf_document: 
+    toc: yes
+    toc_depth: 3
+urlcolor: blue
+---
+
+```{r, include=FALSE}
+library(rstan)
+library(ggplot2)
+library(posterior)
+library(loo)
+```
+
+First, let us import the data into its own dataframe:
+
+```{r}
+suicide <- read.csv('data/suicide_cleaned.csv')
+head(suicide)
+```
+
+# Linear model
+Denote $s_i$ as the number of suicide cases for observation $i$, and $p_i$ is the number of population that the cases observed in. We first try to fit an univariate linear model as follow:
+
+$$
+s_i = \beta_0 + \beta_1 \cdot p_i
+$$
+
+In this case, $\beta_0$ denote the number of suicide case when the population is 0. It is fairly reasonable to see that $\beta_0 = 0$, since there cannot be any suicides if no one exists. This leaves only $\beta_1$. It is also reasonable to assume that under 10% of the population would commit suicide. Thus, we can have a prior as follow:
+
+$$
+\beta_0 = 0 \\
+\beta_1 \sim N(0.1, 10000)
+$$
+
+As this is a linear regression model, we can write the problem as:
+
+$$
+s_i \sim N(\beta_0 + \beta_1 \cdot p_i, \sigma)
+$$
+
+For some $\sigma$
+
+Let's test
+```{r}
+stan_data <- list(
+  s = suicide$suicide,
+  p = suicide$population,
+  N = nrow(suicide)
+)
+```
+
+```{r}
+#sm_lin <- stan(file = "stan_model/linear.stan", iter=3000, data=stan_data, refresh = 0)
+#df_lin <- as.data.frame(sm_lin)
+```
+
+```{r}
+plot(x=suicide$population, y=suicide$suicides_per_100k)
+```
+
+```{r}
+suicide_2016 = suicide[suicide$year==2016,]
+suicide_2015 = suicide[suicide$year==2015,]
+suicide_2014 = suicide[suicide$year==2014,]
+```
+```{r}
+stan_data <- list(
+  suicide_16 = suicide_2016$suicide,
+  suicide_15 = suicide_2015$suicide,
+  suicide_14 = suicide_2014$suicide,
+  N = nrow(suicide_2016)
+)
+
+sm_lin <- stan(file = "stan_model/linear.stan", iter=3000, data=stan_data, refresh = 0)
+```
+
+```{r}
+```
