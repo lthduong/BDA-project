@@ -17,9 +17,9 @@ data <- read.csv("./data/suicide_with_unemploy.csv")
 
 ```{r}
 data$log_gdp <- log(data$gdp_per_capita)
-data_filtered <- filter(data, !(country %in% c('Romania', 'Malta', 'Netherlands', 'Iceland','Greece','Spain', 'Italy', 'United Kingdom')))
+data_filtered <- filter(data, !(country %in% c('Romania', 'Malta', 'Netherlands', 'Greece','Spain', 'Italy', 'United Kingdom', 'Belgium')))
 ggplot(data, 
-       aes(x=log_gdp, y=suicides_per_100k, group = country)) + 
+       aes(x=gdp_per_capita, y=suicides_per_100k, group = country)) + 
   geom_point(aes(col = country))
 ```
 
