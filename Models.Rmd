@@ -9,6 +9,10 @@ output: pdf_document
 library(rstan)
 library(ggplot2)
 library(dplyr)
+library(tidyr)
+library(grid)
+library(gridExtra)
+library(scales)
 ```
 
 ```{r}
@@ -18,9 +22,19 @@ data <- read.csv("./data/suicide_with_unemploy.csv")
 ```{r}
 data$log_gdp <- log(data$gdp_per_capita)
 data_filtered <- filter(data, !(country %in% c('Romania', 'Malta', 'Netherlands', 'Greece','Spain', 'Italy', 'United Kingdom', 'Belgium')))
-ggplot(data, 
-       aes(x=gdp_per_capita, y=suicides_per_100k, group = country)) + 
+scatter_full <- ggplot(data, 
+       aes(x=log_gdp, y=suicides_per_100k, group = country)) + 
   geom_point(aes(col = country))
+
+scatter_filtered <- ggplot(data_filtered, 
+       aes(x=log_gdp, y=suicides_per_100k, group = country)) + 
+  geom_point(aes(col = country))
+
+
+scatter_filtered
+
+data[data$country=="Russian Federation",]
+
 ```
 
 ```{r}
@@ -49,21 +63,21 @@ sm_lin <- stan(file = "stan_model/linear.stan", iter=3000, data=stan_data, refre
 traceplot(sm_lin, pars=c('beta_0', 'beta_1'))
 ```
 ```{r}
-suicide_df <- data[c('year', 'country', 'suicides_per_100k')]
+suicide_df <- data_filtered[c('year', 'country', 'suicides_per_100k')]
 suicide_df <- reshape(suicide_df, timevar='country', idvar='year', direction='wide')[-1]
 names(suicide_df) <- gsub("suicides_per_100k.", "", names(suicide_df))
 suicide_df
 ```
 
 ```{r}
-gdp_df <- data[c('year', 'country', 'log_gdp')]
-gdp_df <- reshape(gdp_df, timevar='country', idvar='year', direction='wide')
+gdp_df <- data_filtered[c('year', 'country', 'log_gdp')]
+gdp_df <- reshape(gdp_df, timevar='country', idvar='year', direction='wide')[-1]
 names(gdp_df) <- gsub("log_gdp.", "", names(gdp_df))
 gdp_df
 ```
 
 ```{r}
-unemployment_df <- data[c('year', 'country', 'unemployment_rate')]
+unemployment_df <- data_filtered[c('year', 'country', 'unemployment_rate')]
 unemployment_df <- reshape(unemployment_df, timevar='country', idvar='year', direction='wide')[-1]
 names(unemployment_df) <- gsub("unemployment_rate.", "", names(unemployment_df))
 unemployment_df
@@ -74,13 +88,42 @@ stan_data_hie <- list(
   N = nrow(suicide_df),
   J = ncol(suicide_df),
   y = suicide_df,
-  x = unemployment_df
+  x = gdp_df
 )
-nrow(suicide_df)
 ```
 
 ```{r}
 sm_hie <- stan(file = "stan_model/linear_hierachical.stan", iter=3000, data=stan_data_hie, refresh = 0)
 ```
 
-Tomorrow you can just draw the shit
+```{r}
+hex_code <- hue_pal()(9)
+draws <- rstan::extract(sm_hie)
+
+
+plot <- ggplot() + 
+  geom_point(data=data_filtered[data_filtered$country=='Finland', ], aes(x=log_gdp, y=suicides_per_100k, group = country, col=country))
+
+# for (i in 1:9) {
+#   beta0 <- quantile(draws$beta_0[,i], c(0.5))[['50%']]
+#   beta1 <- quantile(draws$beta_1[,i], c(0.5))[['50%']]
+#   df_country <- as.data.frame(7:12)
+#   colnames(df_country) <- c('unemployment')
+#   df_country$suicide <- beta0 + beta1*df_country$unemployment
+#   plot <- plot + geom_line(data=df_country, aes(x=unemployment, y=suicide), col=hex_code[i])
+# }
+
+
+beta0 <- quantile(draws$beta_0[,2], c(0.5))[['50%']]
+beta1 <- quantile(draws$beta_1[,2], c(0.5))[['50%']]
+beta0
+beta1
+df_country <- as.data.frame(data_filtered[data_filtered$country == 'Finland',]$log_gdp)
+colnames(df_country) <- c('log_gdp')
+df_country$suicide <- beta0 + beta1*df_country$log_gdp
+plot <- plot + geom_line(data=df_country, aes(x=log_gdp, y=suicide), col=hex_code[2])
+
+plot
+
+
+```

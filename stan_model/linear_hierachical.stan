@@ -17,12 +17,12 @@ parameters {
 
 
 model {
-  mu0 ~ normal(10, 500);
-  mu1 ~ normal(0.5, 500);
+  mu0 ~ cauchy(40, 2400);
+  mu1 ~ cauchy(30, 1500);
   sigma0 ~ gamma(80, 10);
   sigma1 ~ gamma(80, 10);
   
-  sigma ~ normal(500, 700);
+  sigma ~ normal(500, 1500);
   
   for (j in 1:J) {
     beta_0[j] ~ normal(mu0, sigma0);
