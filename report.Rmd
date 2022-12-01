@@ -15,6 +15,7 @@ library(posterior)
 library(loo)
 library(patchwork)
 library(dplyr)
+library(reshape2)
 ```
 
 First, let us import the data into its own dataframe:
@@ -75,4 +76,18 @@ wfh_percent <- ggplot(data=df_plot, aes(x="", y=Freq, fill=Var1))+
 sex_percent + company_percent + wfh_percent
 ```
 
+```{r}
+df_cor <- data.frame(burnout$designation, burnout$work_hours, burnout$fatigue_score)
+names(df_cor) <- gsub("burnout.", "", names(df_cor))
+df_cor <- round(cor(df_cor), 2)
+df_cor <- melt(df_cor)
+ggplot(data=df_cor, aes(x=Var1, y=Var2, fill=value)) + 
+  geom_tile() + 
+  geom_text(aes(Var2, Var1, label = value),
+          color = "white", size = 4)
+```
+Most of the correlations are very high, so if we use all of them, we will have the problem of multicolinearity
 
+
+To means for teh effect of covariates. Define index ==1 if it is male and == 0 it is female. Depends on the observation, it will be relay to the correct mean.
+In brms there is an option to build a Stan code. Use brms to define problem and auto Stan
