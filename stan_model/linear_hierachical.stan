@@ -1,35 +1,47 @@
 data {
-  int<lower=0> N;           // Number of observation
-  int<lower=0> J;           // Number of years for a country  
-  vector[J] y[N];           // Suicide rate
-  vector[J] x[N];           // Unemployment rate
+  int<lower=0> N;           // Total number of observation
+  int<lower=0> J;           // Number of groups
+  int id[N];                // Group index, 1 for male, 2 for female
+  vector[N] x;              // The covariate
+  vector[N] y;              // Burnout rate
 }
 
 parameters {
-  vector[J] beta_0;               // Intercept
-  vector[J] beta_1;               // The slope of the regression line
-  real mu0;                       // Hyperprior 1 for beta0
-  real<lower=0> sigma0;           // Hyperprior 2 for beta0
-  real mu1;                       // Hyperprior 1 for beta1
-  real<lower=0> sigma1;           // Hyperprior 2 for beta1
-  real<lower=0> sigma;      
+  
+  // Hyperpriors
+  real mu0;                   // Mean for the hyperprior for beta1
+  real<lower=0> sigma0;       // Variance for the hyperprior for beta1
+  
+  real mu1;
+  real<lower=0> sigma1;
+  
+  real beta0[J];               // Beta0 and beta1
+  real beta1[J];
+  
+  real<lower=0> sigma;             // Variance of the regression 
 }
 
 
 model {
-  mu0 ~ cauchy(40, 2400);
-  mu1 ~ cauchy(30, 1500);
-  sigma0 ~ gamma(80, 10);
-  sigma1 ~ gamma(80, 10);
+  vector[N] mu;  // The predictor
   
-  sigma ~ normal(500, 1500);
+  // priors
+  mu0 ~ normal(0, 500);
+  sigma0 ~ gamma(10, 10);
+  mu1 ~ normal(0.5, 100);
+  sigma1 ~ gamma(10, 10);
   
-  for (j in 1:J) {
-    beta_0[j] ~ normal(mu0, sigma0);
-    beta_1[j] ~ normal(mu1, sigma1);
+  sigma ~ gamma(80, 10);
+
+  for(j in 1:J) {
+    beta0[j] ~ normal(mu0, sigma0);
+    beta1[j] ~ normal(mu1, sigma1);
+  }  
+  
+  for(n in 1:N) {
+    mu[n] = beta0[id[n]] + x[n] * beta1[id[n]];
   }
   
-  for (j in 1:J) {
-    y[j] ~ normal(beta_0[j] + beta_1[j] * x[j], sigma);
-  }
+  // likelihood
+  y ~ normal(mu, sigma);
 }

@@ -16,6 +16,7 @@ library(loo)
 library(patchwork)
 library(dplyr)
 library(reshape2)
+library(scales)
 ```
 
 First, let us import the data into its own dataframe:
@@ -88,6 +89,48 @@ ggplot(data=df_cor, aes(x=Var1, y=Var2, fill=value)) +
 ```
 Most of the correlations are very high, so if we use all of them, we will have the problem of multicolinearity
 
+
+A bit of converting Male and Female to binary index (1 and 2)
+```{r}
+burnout$sex[burnout$sex == 'Male'] <- 1
+burnout$sex[burnout$sex == 'Female'] <- 2
+```
+
+```{r}
+stan_data <- list(
+  N = nrow(burnout),
+  J = 2,
+  id = as.numeric(burnout$sex),
+  x = burnout$fatigue_score,
+  y = burnout$burn_rate
+)
+```
+
+For testing,   mu0 ~ normal(0, 500); sigma0 ~ gamma(10, 10); mu1 ~ normal(0.5, 100); sigma1 ~ gamma(10, 10); sigma ~ gamma(80, 10);
+
+```{r}
+hie_sm <- stan(file='stan_model/linear_hierachical.stan', iter=3000, data=stan_data, refresh=0)
+```
+
+```{r}
+draws_hie <- rstan::extract(hie_sm)
+
+plot <- ggplot() + 
+  geom_point(data=burnout, aes(x=fatigue_score, y=burn_rate, col=sex))
+
+hex_code <- hue_pal()(2)
+
+for (i in 1:2) {
+  beta0 <- quantile(draws_hie$beta0[,i], c(0.5))[['50%']]
+  beta1 <- quantile(draws_hie$beta1[,i], c(0.5))[['50%']]
+  df_plot <- as.data.frame(burnout[burnout$sex==i, ]$fatigue_score)
+  colnames(df_plot) <- c('x')
+  df_plot$y <- beta0 + df_plot$x*beta1
+  plot <- plot + geom_line(data=df_plot, aes(x=x, y=y), col=hex_code[i], size=2)
+}
+
+plot
+```
 
 To means for teh effect of covariates. Define index ==1 if it is male and == 0 it is female. Depends on the observation, it will be relay to the correct mean.
 In brms there is an option to build a Stan code. Use brms to define problem and auto Stan
