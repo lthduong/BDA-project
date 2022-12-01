@@ -126,7 +126,19 @@ for (i in 1:2) {
   df_plot <- as.data.frame(burnout[burnout$sex==i, ]$fatigue_score)
   colnames(df_plot) <- c('x')
   df_plot$y <- beta0 + df_plot$x*beta1
-  plot <- plot + geom_line(data=df_plot, aes(x=x, y=y), col=hex_code[i], size=2)
+  plot <- plot + geom_line(data=df_plot, aes(x=x, y=y), col=hex_code[i], size=3)
+  
+  
+  # beta0 <- draws_hie$beta0[,i]
+  # beta1 <- draws_hie$beta1[,i]
+  # M <- length(beta0)
+  # df_plot <- as.data.frame(burnout[burnout$sex==i, ]$fatigue_score)
+  # colnames(df_plot) <- c('x')
+  # for (m in 1:100) {
+  #   df_plot$y <- beta0[m] + df_plot$x*beta1[m]
+  #   plot <- plot + geom_line(data=df_plot, aes(x=x, y=y), col=hex_code[i])
+  # }
+  
 }
 
 plot
