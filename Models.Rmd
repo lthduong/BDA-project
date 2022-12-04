@@ -1,14 +1,16 @@
 ---
-title: "EDA"
-author: "Guting Huang"
-date: "2022-11-27"
+title: "BDA Project: Influence of Unemployment Rate on Suicide Rate"
+author: "Duong Le, Guting Huang"
+date: "December 2022"
 output: 
   pdf_document:
-    fig_caption:yes
-bibliography:bibliography.bib
+    toc: yes
+    toc_depth: 3
+    fig_caption: yes
+bibliography: bibliography.bib
 ---
 
-```{r message=FALSE}
+```{r include=FALSE}
 library(rstan)
 library(ggplot2)
 library(dplyr)
@@ -22,7 +24,7 @@ library(Metrics)
 
 # Introduction
 
-Globally around 800,000 people die from suicide every year. Drop in unemployment at the start and during the COVID-19 pandemic is unprecedented, and there is a noticeable increase in the number of suicides. In this project, our goal is to investigate in the relationship between unemployment rate and suicide rate, trying to make predictions based on unemployment rate for each country. If suicide rates can be predicted by unemployment rate, it can become a useful factor to consider when planning for preventative interventions.
+Globally around 800,000 people die from suicide every year. Drop in unemployment at the start and during the COVID-19 pandemic is unprecedented, and there is a noticeable increase in the number of suicides. After this observation, we decided to explore the relationship between unemployment rate and suicide rate, trying to make predictions based on unemployment rate for each country. If suicide rates can be predicted by unemployment rate, it can become a useful factor to consider when planning for preventative interventions.
 
 ## Problem Description
 
@@ -32,24 +34,25 @@ Our goal is to investigate in the relationship between unemployment rate and sui
 
 Our data consists of two datasets retrieved from kaggle.com. The first dataset contains suicide information by year and country from 1985-2016 with 12 variables (country, year, sex, age group, count of suicides, population, suicide rate, country-year composite key, HDI for year, gdp for year \$, gdp per capita, generation). The other dataset includes the unemployment rates by country from 1991-2021.
 
-Since the two dataset have a different time range, we first took their intersection by year and kept only rows whose year are common to both, from 1991-2015. Furthermore, some of the countries do not have complete data for every year in the selected time range, therefore we decided to focus on those European countries that have complete suicide information from 1991-2015. Because of the limited data, we also decided to ignore the year attribute. Finally, the remaining variables that are of interest are country, suicide rate (suicide per 100k), and unemployment rate.
+Since the two datasets have a different time range, we first took their intersection by year and kept only rows whose year are common to both, from 1991-2015. Furthermore, some of the countries do not have complete data for every years in the selected time range, therefore we decided to focus on those European countries that have complete suicide information from 1991-2015. Because of the limited data, we also decided to ignore the year attribute. Finally, the remaining variables that are of interest are country, suicide rate (suicide per 100k), and unemployment rate. In addition, we fit the model using data until 2014, and leave 2015 for predictive performance assessment.
+
+```{r echo=FALSE}
+data <- read.csv("./data/suicide_with_unemploy.csv")
+head(data[2:5])
+```
 
 ## Main modeling idea
 
-Before going into the models, we should take a look at the data:
+Before going into the models, let us take a look at the data:
 
-```{r}
-data <- read.csv("./data/suicide_with_unemploy.csv")
-```
-
-```{r}
+```{r echo=FALSE}
 ggplot(data=data, aes(x=unemployment_rate, y=suicides_per_100k, col=country))+
   geom_point()
 ```
 
-A quick look at the data suggests that there are no overall trend between the unemployment rate and the suicide rate. However, upon a closer look, we can see that each the unemployment rate and the suicide rate of individual countries seems to have a linear trend. Thus, we decide that we would implement two models: a linear separate model and a linear hierachical model.
+A quick look at the data suggests that there are no overall trend between the unemployment rate and the suicide rate. However, upon a closer look, we can see that the unemployment rate and the suicide rate of individual countries follows a linear trend. Thus, we decide that we would implement two models: a linear separate model and a linear hierarchical model.
 
-In more details, denote the suicide rate of country $j$ as $y_j$, and the corresponding unemployment rate as $x_j$. We want to fit the following model:
+In more detail, denote the suicide rate of country $j$ as $y_j$, and the corresponding unemployment rate as $x_j$. We want to fit the following model:
 
 $$
 y_j = \beta_{0_j} + x_j \cdot \beta_{1_j}
@@ -57,7 +60,7 @@ $$
 
 The details of the model and how we choose the priors will be presented in each model section below.
 
-But before going in detailed about the models, we should prepare the data to pass into the Stan program
+But before going in detailed about the models, we should prepare the data to pass into the Stan program.
 
 ```{r}
 # Add a group indicator column to the data
@@ -83,7 +86,7 @@ stan_data <- list(
 
 ## Model description
 
-Based on Fountolakis et al's paper \cite{priors}, we can see that the yearly suicide rate are concentrated around 12.83. We also see that the estimated coefficient for the National unemployment rate is 0.005. Thus, it is sensible to say that $\beta_1 \sim N(0, \sigma_{\beta_1})$. We also believe that it is reasonable that increase in 1% of unemployment rate will change the suicide rate by 50%. Thus, the following probability should held for $\beta_1$:
+Based on Fountolakis et al's paper @priors, the yearly suicide rate are concentrated around 12.83. We also see that the estimated coefficient for the National unemployment rate is 0.005. Thus, it is sensible to say that $\beta_1 \sim N(0, \sigma_{\beta_1})$. We also believe that it is reasonable that an increase in 1% of unemployment rate will not change the suicide rate by more than 50%. Thus, the following probability should hold for $\beta_1$:
 
 $$
 Pr(-6.415 < \beta_1 < 6.415) = 0.99
@@ -101,7 +104,7 @@ $$
 \beta_0 \sim N(1.89, 20)
 $$
 
-For the variance parameter, we do not have any prior knowledge about this. For this reason, we decide to go with a weakly informative prior, more explicitly, a heavy-tailed prior distribution. Because of the heavier tail, it would be safer if the parameters that we choose do not accomodate the true value of the variance parameter. The distribution of choice for this part is Half-Cauchy distribution
+For the variance parameter, we do not have any prior knowledge about this. For this reason, we decide to go with a weakly informative prior, more explicitly, a heavy-tailed prior distribution. Because of the heavier tail, it would be safer if the parameters that we choose do not accomodate the true value of the variance parameter. The distribution of choice for this part is Half-Cauchy distribution:
 
 $$
 \sigma \sim Half-Cauchy(0, 10)
@@ -110,12 +113,12 @@ $$
 Thus, we have the following separate model:
 
 $$
-\begin{align}
+\begin{aligned}
 \beta_{0_j} &\sim N(1.89, 20) \\
 \beta_{1_j} &\sim N(0, 2.5) \\
    \sigma_j &\sim Half-Cauchy(0, 10) \\
         y_j &\sim N(\beta_{0_j} + x_j \cdot \beta_{1_j}, \sigma_j)
-\end{align}
+\end{aligned}
 $$
 
 ## Stan code and running option
@@ -128,38 +131,52 @@ writeLines(readLines('stan_model/separate.stan'))
 
 This is the running command and its options:
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 sm_sep <- stan(file='stan_model/separate.stan', data=stan_data, iter=2000, refresh=0)
 ```
 
+```{r echo=FALSE}
+check_hmc_diagnostics(sm_sep)
+```
+
+According to the HMC diagnostics, none of the iterations resulted in divergence, nor saturated the maximum tree depth. In other words, the sampling behaves well.
+
 ## Convergence diagnostics
 
-It seems that there were no warning on convergence for this one, so it is a good sign that the chains are not diverge. But just to be sure, let's visualize the chains for both parameters `\beta_0` and `\beta_1` of Austria.
+It seems that there were no warning on convergence for this one, so it is a good sign that the chains are not diverge. But just to be sure, let's visualize the chains for the parameters $\beta_0$ and $\beta_1$ of Austria.
 
-```{r}
+```{r, fig.height = 4, fig.width = 6, fig.align = "center", echo-FALSE}
 traceplot(sm_sep, pars=c('beta0[1]', 'beta1[1]'))
 ```
 
-Although there are some chains that behave quite strange, the chains seem to be converged. Let us also look at the `\hat{R}` values
+Although there are some chains that behave quite differently, visually the chains seem to be converged. Let us also look at the $\hat{R}$ values
 
-```{r}
-df <- as.data.frame(summary(sm_sep)$summary)
-head(df, 34)
+```{r, fig.height = 3, fig.width = 4, fig.align = "center", echo=FALSE}
+summary_df <- as.data.frame(summary(sm_sep)$summary)
+ggplot(summary_df, aes(x=seq(0, 459, 1), y=Rhat)) + geom_point(color='cornflowerblue') +
+  geom_hline(yintercept=1.05, linetype='dotted', col = 'red') + xlab("")
 ```
 
+With the $\hat{R}$ values are close to 1 and below the recommended value of 1.05, we can say that the chains are indeed well converged.
 
-With the $\hat{R}$ values are close to 1 and below the recommended value of 1.05, we can be say that the chains are indeed converged well.
+```{r, fig.height = 3, fig.width = 4, fig.align = "center", echo=FALSE}
+#quantile(summary_df$n_eff, probs=c(0.05, 0.5, 0.95))
+plot(summary_df$n_eff)
+```
 
+The effective sample size (ESS) measures the sample size needed to achieve the same level of precision for a similarly sampled set. In other words, it measures the quality of of our estimation for parameters. Many of the ESS are larger than the actual number of samples (4000), which means that it is likely there are negative estimated autocorrelation in the samples.
+ 
 ## Posterior predictive check
 
-We can draw the fitted line onto the data points to assess the posterior predictive of the model. In this part, we only choose the median value of each `\beta_0` and `\beta_1` to make the figure looks a bit nicer.
+We can draw the fitted line onto the data points to assess the posterior predictive of the model. In this part, we only choose the median value of each $\beta_0$ and $\beta_1$ to make the figure looks a bit nicer.
 
 ```{r, fig.width=15, fig.height=10, fig.cap="\\label{fitted_sep}The fitting of the linear model to the data points", warning=FALSE, echo=FALSE}
 J <- length(countries)
 hex_code <- hue_pal()(J)
 
 plot <- ggplot() + 
-  geom_point(data=data_train, aes(x=unemployment_rate, y=suicides_per_100k, col=country))
+  geom_point(data=data_train, aes(x=unemployment_rate, y=suicides_per_100k, col=country)) +
+  theme(plot.margin = unit(c(1,1,1,1),"cm"))
 
 
 draws <- rstan::extract(sm_sep)
@@ -175,14 +192,15 @@ for(j in 1:J) {
 
 plot
 ```
-The plot can be a bit confusing to look at, let's break down the plot into four subplots, each have 4-5 countries:
+The plot can be a bit confusing to look at, so Figure \ref{break_down_sep} shown the plot that are splitted into smaller subplots
 
-```{r, fig.width=12, fig.height=8, fig.cap="\\label{break_down_sep}Break down of Figure \ref{fitted_sep}", echo=FALSE}
+```{r, fig.width=10, fig.height=7, fig.cap="\\label{break_down_sep}Subplots of the fitted posterior", echo=FALSE}
 # The first four countries
 hex_code_4 <- hue_pal()(4)
 plot1 <- ggplot() +
   geom_point(data=data_train[data_train$country %in% countries[1:4], ], aes(x=unemployment_rate, y=suicides_per_100k, col=country)) + 
-  labs(x='Unemployment rate', y ='Suicide rate')
+  labs(x='Unemployment rate', y ='Suicide rate') + 
+  theme(plot.margin = unit(c(1,1,1,1),"cm"))
 for(j in 1:4) {
   beta0 <- quantile(draws$beta0[,j], c(0.05, 0.5, 0.95))[['50%']]
   beta1 <- quantile(draws$beta1[,j], c(0.5))[['50%']]
@@ -195,7 +213,8 @@ for(j in 1:4) {
 # The next four countries
 plot2 <- ggplot() +
   geom_point(data=data_train[data_train$country %in% countries[5:8], ], aes(x=unemployment_rate, y=suicides_per_100k, col=country)) + 
-  labs(x='Unemployment rate', y ='Suicide rate')
+  labs(x='Unemployment rate', y ='Suicide rate') + 
+  theme(plot.margin = unit(c(1,1,1,1),"cm"))
 hex_code_4 <- hue_pal()(4)
 for(j in 5:8) {
   beta0 <- quantile(draws$beta0[,j], c(0.05, 0.5, 0.95))[['50%']]
@@ -209,7 +228,8 @@ for(j in 5:8) {
 # The next four countries
 plot3 <- ggplot() +
   geom_point(data=data_train[data_train$country %in% countries[9:12], ], aes(x=unemployment_rate, y=suicides_per_100k, col=country)) + 
-  labs(x='Unemployment rate', y ='Suicide rate')
+  labs(x='Unemployment rate', y ='Suicide rate') + 
+  theme(plot.margin = unit(c(1,1,1,1),"cm"))
 hex_code_4 <- hue_pal()(4)
 for(j in 9:12) {
   beta0 <- quantile(draws$beta0[,j], c(0.05, 0.5, 0.95))[['50%']]
@@ -223,7 +243,8 @@ for(j in 9:12) {
 # The final five countries
 plot4 <- ggplot() +
   geom_point(data=data_train[data_train$country %in% countries[13:17], ], aes(x=unemployment_rate, y=suicides_per_100k, col=country)) + 
-  labs(x='Unemployment rate', y ='Suicide rate')
+  labs(x='Unemployment rate', y ='Suicide rate') + 
+  theme(plot.margin = unit(c(1,1,1,1),"cm"))
 hex_code_4 <- hue_pal()(5)
 for(j in 13:17) {
   beta0 <- quantile(draws$beta0[,j], c(0.05, 0.5, 0.95))[['50%']]
@@ -237,36 +258,25 @@ grid.arrange(plot1, plot2, plot3, plot4, nrow=2)
 
 ```
 
-It can be seen from Figure \ref{fitted_hie} and Figure \ref{break_down_hie} that the line seems to be a good fit for most of the countries.
+It can be seen from Figure \ref{fitted_sep} and Figure \ref{break_down_sep} that the line seems to be a good fit for most of the countries.
 
-Another method to assess the predictive performance of the model is to perform leave-one-out cross-validation (CV-LOO). Below is the code to perform PSIS-LOO and visualize $\hat{k}$:
+Another method to assess the predictive performance of the model is to perform leave-one-out cross-validation (CV-LOO). A visualization of the $\hat{k}$ values can be seen in Figure \ref{pareto_k_sep},
 
-```{r}
+```{r,warning=FALSE, echo=FALSE, fig.cap='\\label{pareto_k_sep}Visualization of the Pareto k values'}
 log_lik_sep <- extract_log_lik(sm_sep, merge_chains = FALSE)
 r_eff_sep <- relative_eff(exp(log_lik_sep), cores=4)
 loo_sep <- loo(log_lik_sep, r_eff=r_eff_sep, cores=4)
+plot(loo_sep)
 ```
 
-```{r, fig.cap="\\label{pareto_k_sep}$\hat{k}$ values of the separate model"}
-pareto_k_sep <- as.data.frame(pareto_k_values(loo_sep))
-ggplot(pareto_k_sep, aes(y=pareto_k_values(loo_sep), x=1:(425-17))) +
-geom_point() +
-geom_hline(yintercept=0.7, linetype="dashed") +
-geom_hline(yintercept=1) +
-ylim(-0.25, 1.25) +
-labs(titles='Pareto k values for observations of the separate model',
-x='Observation', y='Pareto k value')
-```
-
-As can be seen in Figure \ref{pareto_k_sep}, some of the $\hat{k}$ values are higher than 0.7 and even one value higher than 1. This indicate that our model is likely to be optimistic.
+As can be seen in the PSIS diagnostic figure, some of the $\hat{k}$ values are higher than 0.7. This indicate that our model is likely to be optimistic.
 
 ## Predictive performance assessment
 
-Next, let us predict the suicide rate in 2015. To get the value for $\beta_1$ and $\beta_0$, we will just simply take the mean of the corresponding sample group.
+Next, let us predict the suicide rate in 2015. To get the value for $\beta_1$ and $\beta_0$, we simply take the mean of the corresponding sample group.
 
-```{r}
+```{r, fig.height = 3, fig.width = 4, fig.align = "center", fig.align = "center", echo=FALSE}
 pred <- c()
-
 
 for (j in 1:J) {
   beta0_mean <- mean(draws$beta0[,j])
@@ -280,7 +290,8 @@ ggplot() +
   geom_point(data=data_valid, aes(x=unemployment_rate, y=suicides_per_100k, col='blue')) +
   geom_point(data=data_valid, aes(x=unemployment_rate, y=pred_sep, col='red')) +
   theme(legend.title = element_blank())+
-  scale_color_manual(labels = c("True value", "Predicted value"), values = c("blue", "red"))
+  scale_color_manual(labels = c("True value", "Predicted value"), values = c("blue", "red")) +
+  ggtitle("Predicted Suicide Rate 2015")
 ```
 
 From the plot, we can see that many of the predicted data points are far from their true value. To get a better picture, let us calculate the RSME of the prediction:
@@ -297,28 +308,26 @@ To wrap up the analysis of the separate model, let us do a sensitivity analysis.
 ```{r, echo=FALSE}
 writeLines(readLines('stan_model/separate_2.stan'))
 ```
-
 ```{r}
 sm_sep_2 <- stan(file='stan_model/separate_2.stan', data=stan_data, iter=2000, refresh=0)
-head(as.data.frame(summary(sm_sep_2)$summary), 34)
 ```
 
-And below is the summary of the original separate model
-
-```{r}
-head(df, 34)
+We compare the two separate models using `loo_compare`:
+```{r warning=FALSE, echo=FALSE}
+log_lik_sep2 <- extract_log_lik(sm_sep_2, merge_chains = FALSE)
+r_eff_sep2 <- relative_eff(exp(log_lik_sep2), cores=4)
+loo_sep2 <- loo(log_lik_sep2, r_eff=r_eff_sep2, cores=4)
+loo_compare(list('separate_1'=loo_sep, 'separate_2'=loo_sep2))
 ```
+Since the elpd_diff and se_diff between the original and second separate model are very small, we conclude that our model is relatively not sensitive to prior choices.
 
-With a visual assessment, the difference in some of the $\beta_0$ of the two models is quite significant, while the difference in $\beta_1$ is miniscule. So it is safe to say that our model is relatively not sensitive to prior choice.
-
-
-# Hierachical model
+# Hierarchical model
 
 ## Model description
 
-While the performance of the separate model seems to be good, we want to go a bit further. It is quite natural to think that the slopes and intercepts of different countries can come from a common population distribution. For that reason, we dicided to fit a hierachical model to our data set.
+We want to go a bit further with our model. It is quite natural to think that the slopes and intercepts of different countries can come from a common population distribution. For that reason, we decided to fit a hierarchical model to our data set.
 
-With visual assessment of the data, it seems that all of the countries share the same intercept. That is why we only impose a hierachical structure on the slope parameter.
+With visual assessment of the data, it seems that all of the countries share the same intercept. That is why we only impose a hierarchical structure on the slope parameter.
 
 We use the same reasoning as above to obtain a prior $N(1.89, 20)$ for intercept $\beta_0$ and a $Half-Cauchy(0, 10)$ prior for the variance $\sigma$.
 
@@ -328,19 +337,19 @@ $$
 \beta_{1_j} \sim N(\mu_{1_j}, \sigma_{1_j})
 $$
 
-Similar to before, we believe the mean of the $\beta_1$ should be centered around 0. Thus, the parameter $\mu_{1_j}$ should also be centered around 0. We also select the standard deviation value of 30 for $\mu_{1_j}$ to reflect that we are not very confident about this value. For $\sigma_{1_j}$, we select a $Half-Cauchy(0, 10)$ distribution as a weakly informative distribution for this value.
+Similar to before, we believe the mean of the $\beta_1$ should be centered around 0. Thus, the parameter $\mu_{1_j}$ should also be centered around 0. We also select the standard deviation value of 30 for $\mu_{1_j}$ to reflect that we do not have much information. For $\sigma_{1_j}$, we select a $Half-Cauchy(0, 10)$ distribution as a weakly informative distribution.
 
-The complete hierachical model:
+The complete hierarchical model:
 
 $$
-\begin{align}
+\begin{aligned}
    \mu_{1_j} &\sim N(0, 10) \\
 \sigma_{1_j} &\sim Half-Cauchy(0, 10) \\
  \beta_{1_j} &\sim N(\mu_{1_j}, \sigma_{1_j}) \\
      \beta_0 &\sim N(1.89, 20) \\
       \sigma &\sim Half-Cauchy(0, 10) \\
       y_{ij} &\sim N(\beta_0 + \beta_{1_j} \cdot x_{ij}, \sigma)
-\end{align}
+\end{aligned}
 $$
 
 ## Stan code and running options
@@ -353,32 +362,44 @@ writeLines(readLines('stan_model/linear_hierachical.stan'))
 
 Our setting to run the file was as below:
 
-```{r}
+```{r, message=FALSE, warning=FALSE}
 sm_hie <- stan(file='stan_model/linear_hierachical.stan', data=stan_data, iter=2000, refresh=0)
 ```
 
+```{r, echo=FALSE}
+check_hmc_diagnostics(sm_hie)
+```
+According to the HMC diagnostics, none of the iterations resulted in divergence, nor saturated the maximum tree depth. In other words, the sampling behaves well.
+
 ## Convergence diagnostics
 
-It seems that there were no warning on convergence for this one, so it is a good sign that the chains are not diverge. In the first run of the code, there was actually a divergence warning. But when we increase the iteration, the warning was gone. But just to be sure, let's visualize the chains for `\beta_0` and `\beta_1` of Austria
+It seems that there were no warnings of convergence for this model also. But just to be sure, we once again visualize the chains for $\beta_0$ and $\beta_1$ of Austria
 
-```{r, fig.cap="\\label{trace_hie}The chains of the intercept and the slope of Austria group"}
+```{r, fig.height = 4, fig.width = 6, fig.align = "center", fig.cap="\\label{trace_hie}The chains of the intercept and the slope of Austria group", echo=FALSE}
 traceplot(sm_hie, pars=c('beta0', 'beta1[1]'))
 ```
 
-With visual inspection, it seems that the chains converged quite well. But we want to take a step further and investigate the $\hat{R}$ to detect any potential divergence
+With visual inspection, it seems that the chains converged quite well. In some parts they behave differently, so the $\hat{R}$ should be checked to detect any potential divergence
 
-```{r}
+```{r, fig.height = 3, fig.width = 4, fig.align = "center", echo=FALSE}
 df <- as.data.frame(summary(sm_hie)$summary)
-head(df, 20)
+ggplot(df, aes(x=seq(0, 429, 1), y=Rhat)) + geom_point(color='cornflowerblue') +
+  geom_hline(yintercept=1.05, linetype='dotted', col = 'red') + xlab("")
 ```
 
-The $\hat{R}$ values are all close to 1, and are below the recommended value of 1.05. Combined with Figure \ref{trace_hie}, this is indicates that the chains have converged well.
+The $\hat{R}$ values are all close to 1 and below the recommended value of 1.05. With these information, we can safely say that our model is converged well. To conclude our diagnostics, let's look at the effective sample size
+
+```{r, fig.height = 3, fig.width = 4, fig.align = "center", echo=FALSE}
+#quantile(df$n_eff, probs=c(0.05, 0.5, 0.95))
+plot(df$n_eff)
+```
+The effective sample size (ESS) measures the sample size needed to achieve the same level of precision for a similarly sampled set. In other words, it measures the quality of of our estimation for parameters. Many of the ESS are larger than the actual number of samples (4000), which means that it is likely there are negative estimated autocorrelation in the samples.
 
 ## Posterior predictive check
 
-We can draw the fitted line onto the data points to assess the posterior predictive of the model. In this part, we only choose the median value `\beta_0` and each `\beta_1` to make the figure looks a bit nicer.
+We can draw the fitted line onto the data points to assess the posterior predictive of the model. Similar with the separate model, we only choose the median value $\beta_0$ and each $\beta_1$ to make the figure looks a bit nicer.
 
-```{r, fig.width=15, fig.height=10, fig.cap="\\label{fitted_hie}The fitting of the linear model to the data points", warning=FALSE, echo=FALSE}
+```{r, fig.width=9, fig.height=5, fig.cap="\\label{fitted_hie}The fitting of the linear model to the data points", warning=FALSE, echo=FALSE}
 hex_code <- hue_pal()(J)
 
 plot <- ggplot() +
@@ -397,15 +418,13 @@ for(j in 1:J) {
   plot <- plot + geom_line(data=df_country, aes(x=unemployment, y=suicides), col=hex_code[j])
 }
 
-
-
 plot
 
 ```
 
 Again, let's break down the plot into four subplots of 4-5 countries:
 
-```{r, fig.width=12, fig.height=8, fig.cap="\\label{break_down_hie}Break down of Figure \ref{fitted_hie}", echo=FALSE}
+```{r, fig.width=10, fig.height=7, fig.cap="\\label{break_down_hie}Subplots of the fitted posterior", echo=FALSE}
 # The first four countries
 hex_code_4 <- hue_pal()(4)
 plot1 <- ggplot() +
@@ -463,32 +482,22 @@ grid.arrange(plot1, plot2, plot3, plot4, nrow=2)
 
 It can be seen from Figure \ref{fitted_hie} and Figure \ref{break_down_hie} that the line seems to be a good fit for most of the countries.
 
-Another method to assess the predictive performance of the model is to perform leave-one-out cross-validation (CV-LOO). Below is the code to perform PSIS-LOO and visualize $\hat{k}$:
+Let's also perform leave-one-out cross-validation (CV-LOO). Below is the $\hat{k}$ of the hierachical model:
 
-```{r}
+```{r, echo=FALSE, warning=FALSE, fig.cap='\\label{pareto_k_hie}Visualization of the Pareto k values'}
 log_lik_hie <- extract_log_lik(sm_hie, merge_chains=F)
 r_eff_hie <- relative_eff(exp(log_lik_hie), cores=4)
 loo_hie <- loo(log_lik_hie, r_eff=r_eff_hie, cores=4)
+plot(loo_hie)
 ```
 
-```{r, echo=FALSE}
-pareto_k_hie <- as.data.frame(pareto_k_values(loo_hie))
-ggplot(pareto_k_hie, aes(y=pareto_k_values(loo_hie), x=1:(425-17))) +
-geom_point() +
-geom_hline(yintercept=0.7, linetype="dashed") +
-geom_hline(yintercept=1) +
-ylim(-0.25, 1) +
-labs(titles='Pareto k values for observations of the hierachical model',
-x='Observation', y='Pareto k value')
-```
-
-As shown in the plot, all $\hat{k}$ value are under 0.7. This indicates that the model is reliable.
+As shown in the Figure \ref{pareto_k_hie}, all $\hat{k}$ value are under 0.7. This indicates that the model is reliable.
 
 ## Predictive performance assessment
 
 Let's try to visualize the prediction for year 2015. To get the value for $\beta_1$ and $\beta_0$, we will just simply take the mean of the corresponding sample group
 
-```{r, echo=FALSE}
+```{r, fig.height = 3, fig.width = 4, fig.align = "center", echo=FALSE}
 pred <- c()
 
 beta0_mean <- mean(draws$beta0)
@@ -504,7 +513,8 @@ ggplot() +
   geom_point(data=data_valid, aes(x=unemployment_rate, y=suicides_per_100k, col='blue')) +
   geom_point(data=data_valid, aes(x=unemployment_rate, y=pred_hie, col='red')) +
   theme(legend.title = element_blank())+
-  scale_color_manual(labels = c("True value", "Predicted value"), values = c("blue", "red"))
+  scale_color_manual(labels = c("True value", "Predicted value"), values = c("blue", "red")) +
+  ggtitle("Predicted Suicide Rate 2015")
 ```
 
 From the plot, we can see that for most of the data point, the predicted value seems a bit far away from the true value. But we can check a bit closer using RMSE:
@@ -517,31 +527,54 @@ We can see that the RMSE here is still large, but it is a bit smaller than the s
 
 ## Prior sensitivity analysis
 
-Again, to wrap up the analysis of the hierachical model, let us do a prior sensitivity analysis. Again, let us fit a very weak priors to all of the parameters. For $\mu_1$ and $\beta_0$, I will replace the old prior with a $N(0, 200)$ distribution, and for all of the $\sigma_1$ and $\sigma$, I will replace them with a $Half-Cauchy(0, 50)$. Below is the Stan code.
+Again, to wrap up the analysis of the hierarchical model, let us do a prior sensitivity analysis. Again, let us fit a very weak priors to all of the parameters. For $\mu_1$ and $\beta_0$, we will replace the old prior with a $N(0, 200)$ distribution, and for all of the $\sigma_1$ and $\sigma$, I will replace them with a $Half-Cauchy(0, 50)$. Below is the Stan code.
 
 ```{r, echo=FALSE}
 writeLines(readLines('stan_model/linear_hierachical_2.stan'))
 ```
 
-```{r}
+```{r message=FALSE}
 sm_hie_2 <- stan(file='stan_model/linear_hierachical_2.stan', data=stan_data, iter=2000, refresh=0)
-head(as.data.frame(summary(sm_hie_2)$summary), 20)
 ```
 
-And below is the summary of the original hierachical model
-
-```{r}
-head(df, 20)
+We compare the two hierarchical models using `loo_compare`:
+```{r warning=FALSE}
+log_lik_hie2 <- extract_log_lik(sm_hie_2, merge_chains = FALSE)
+r_eff_hie2 <- relative_eff(exp(log_lik_hie2), cores=4)
+loo_hie2 <- loo(log_lik_hie2, r_eff=r_eff_hie2, cores=4)
+loo_compare(list('hierarchical_1'=loo_hie, 'hierarchical_2'=loo_hie2))
 ```
-
-A visual comparison of the two models shows that the value of the $\beta_1$ and $\beta_0$ are very close to each other. This suggests that our model is not sensitive to changes in priors.
+Since the elpd_diff and se_diff between the original and second separate model, this suggests that our model is not sensitive to changes in priors.
 
 # Model comparision
 
-From previous parts, it can be seen that the hierachical model seems to be a better choice. It has a slightly smaller RMSE when predicting new values, and also less susceptible to optimistic due to PSIS analysis. But to be sure, we will perform a model comparision with `loo_compare`
+From previous parts, it can be seen that the hierarchical model seems to be a better choice. It has a slightly smaller RMSE when predicting new values, and also less susceptible to optimistic due to PSIS analysis. But to be sure, we will perform a model comparison with `loo_compare`
 
 ```{r}
 loo_compare(list('separate'=loo_sep, 'hierachical'=loo_hie))
 ```
+Pairwise comparisons between each model and the model with the largest elpd, in this case the separate model, is made. Since for the hierarchical and separate model |elpd_diff/se_diff| > 5, the models are well-specified. This is a surprise for us and contradicts with our expectation that the hierarchical model is a better fit. It seems that according to PSIS-LOO, the best model is the separate model. However, one thing to be noted is that some of the $\hat{k}$ values of the separate model are less than 0.7. Thus, this can suggest that our error estimate is optimistic according to Vehtari et al @psis.
 
-This is a surprise for us. The elpd difference between the separate and hierachical model is very large. It seems that according to PSIS-LOO, the best model is the separate model.
+# Disscussion
+
+During the course of this project, we noticed that there were some issues regarding our analysis. The most prominent problem is that our data does not cover all of Europe. Since the model we built are either separate (the first model) or a hierachical structure (the second model), this makes the countries that are not included in the dataset cannot be predicted by our models. In addition, the dataset we used is only ranging from 1991 to 2015, and it is very natural to expect that the suicide pattern can change after these period. This is especially true considering the COVID-19 pandemic, which leads to an unprecedented unemployment rate and suicide rate.
+
+Going deeper into the models. Some of the prior parameters for the separate model are based on educated guess, instead of conducting formal research. This goes the same for the distribution used. We mostly used Normal and Cauchy distribution because they are simple to work with. This might also be one of the causes that lead to some of the  $\hat{k}$ values fall into the `bad` and `very bad` category. 
+
+The same issues can be said about the hierachical model. We only expand on what we have known in the separate priors. This might also leads to the surprising results observed in the Model Comparison section. While it is true that some of the $\hat{k}$ values of the separate model are very large, the percentage of them are only about 1% (At the time the script is ran). There is also the issue in which we choose a common $\beta_0$ values in the hierachical model. On retrospective, it might be more logical if we also imposed a hierachical structure onto $\beta_0$. In our best interest, we ran a very quick test with a model that has hierachical structures on both $\beta_0$ and $\beta_1$ and compared the `elpd` with the separate model. Although the `elpd_diff` was still very large, it was noticeably smaller compared to the hierachical model with common $\beta_0$. Finally, it is also worth to note that both models were not very good when predicting new data, though this can be due to the lack of validation data for each group.
+
+For future improvement of the project, we can collect more recent data and data that cover more countries than the current dataset. It is also worthwhile to conduct more literature review so we might find potentially better priors. Last but not least, we can incorporate more covariates to the model. The current model only predict using unemployment rate, but we can add gdp per capita or HDI value of the countries to the analysis.
+
+# Conclusion of the results
+
+To recap the progress and results of the project, we have fitted a linear regression model with the aim to predict suicide rates using unemployment rates. We have tried two different approaches: first we treat each countries as separated groups, and then we tried to add a hierachical structure to the countries. The results of the analysis showed that with the chosen priors, the models can well converged, and it seems that the posterior fit were quite reasonable. However, when doing more analysis, it was revealed to us that both model were not very good when given new data to predict. The hierachical model performed slightly better, but this difference can be minor. We also noticed that in term of PSIS-LOO performace the separate model has a significant difference in term of `elpd` compared to the hierachical model. But it is also worth to note that about 1% of the $\hat{k}$ values of the separate model are greater than 1. So if we only choose the model based on `elpd`, the separate model seems to be the better model, although it is likely to be optimistic. Explain in words, the results of this analysis tell us that when predicting the suicide rates using unemployment rates, it would be better if we treat the countries as separated groups. 
+
+
+# Reflection
+Throughout this project we were able to combine concepts taught in the course and apply them to real world data, which enables us to get a hang of the workflow of Bayesian data analysis. One of the main challenges encountered at the start of the project is choosing a suitable dataset. Complete information is not always possible and pre-processing can be the most laborous part if the dataset is not chosen carefully. Under the scope of this project, we chose the dataset that seems to require the minimum amount of preprocessing so that we could focus more on the Bayesian analysis part. 
+
+The other main challenge we encountered is choosing a set of models to apply on our data. The amount of practice from the course assignment for defining suitable model for the data at hand is limited. Through this project and help from our dedicated teaching assistants, we were able to experience various ways to look at our data and new methods not covered in depth in the course, such as centered parameterization. There remains a lot to be explored in Stan and in Bayesian analysis. Furthermore, we were able to practice a lot with using visualizations, especially on ggplot2, to make posterior and predictive checks. 
+
+# References
+
+
